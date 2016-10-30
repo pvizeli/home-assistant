@@ -17,6 +17,9 @@ REQUIREMENTS = ["ha-ffmpeg==0.15"]
 
 _LOGGER = logging.getLogger(__name__)
 
+DATA_BIN = 'ffmpeg_binary'
+DATA_TEST = 'ffmpeg_test'
+
 CONF_INPUT = 'input'
 CONF_FFMPEG_BIN = 'ffmpeg_bin'
 CONF_EXTRA_ARGUMENTS = 'extra_arguments'
@@ -34,53 +37,51 @@ CONFIG_SCHEMA = vol.Schema({
 }, extra=vol.ALLOW_EXTRA)
 
 
-FFMPEG_CONFIG = {
-    CONF_FFMPEG_BIN: DEFAULT_BINARY,
-    CONF_RUN_TEST: DEFAULT_RUN_TEST,
-}
-FFMPEG_TEST_CACHE = {}
-
-
-def setup(hass, config):
-    """Setup the FFmpeg component."""
-    if DOMAIN in config:
-        FFMPEG_CONFIG.update(config.get(DOMAIN))
-    return True
-
-
-def get_binary():
-    """Return ffmpeg binary from config.
-
-    Async friendly.
-    """
-    return FFMPEG_CONFIG.get(CONF_FFMPEG_BIN)
-
-
-def run_test(hass, input_source):
-    """Run test on this input. TRUE is deactivate or run correct."""
-    return run_coroutine_threadsafe(
-        async_run_test(hass, input_source), hass.loop).result()
-
-
 @asyncio.coroutine
-def async_run_test(hass, input_source):
-    """Run test on this input. TRUE is deactivate or run correct.
+def async_setup(hass, config):
+    """Setup the FFmpeg component."""
+    domain_conf = config.get(DOMAIN, {})
+    run_test = domain_conf.get(CONF_RUN_TEST, DEFAULT_RUN_TEST)
 
-    This method must be run in the event loop.
-    """
-    from haffmpeg import TestAsync
-
-    if FFMPEG_CONFIG.get(CONF_RUN_TEST):
-        # if in cache
-        if input_source in FFMPEG_TEST_CACHE:
-            return FFMPEG_TEST_CACHE[input_source]
-
-        # run test
-        ffmpeg_test = TestAsync(get_binary(), loop=hass.loop)
-        success = yield from ffmpeg_test.run_test(input_source)
-        if not success:
-            _LOGGER.error("FFmpeg '%s' test fails!", input_source)
-            FFMPEG_TEST_CACHE[input_source] = False
-            return False
-        FFMPEG_TEST_CACHE[input_source] = True
+    hass.data[DATA_BIN] = domain_conf.get(CONF_FFMPEG_BIN, DEFAULT_BINARY)
+    hass.data[DATA_TEST] = TestFfmpeg(hass, run_test)
     return True
+
+
+class TestFfmpeg(object):
+    """Handle Test/Checks inside Home-Assistant."""
+
+    def __init__(self, hass, run_test=False):
+        """Init Testclass."""
+        self.hass = hass
+        self._run_test = run_test
+        self._cache = {}
+
+    def run_test(self, input_source):
+        """Run test on this input. TRUE is deactivate or run correct."""
+        return run_coroutine_threadsafe(
+            self.async_run_test(input_source), hass.loop).result()
+
+    @asyncio.coroutine
+    def async_run_test(self, input_source):
+        """Run test on this input. TRUE is deactivate or run correct.
+
+        This method must be run in the event loop.
+        """
+        from haffmpeg import TestAsync
+
+        if self._run_test:
+            # if in cache
+            if input_source in self._cache:
+                return self._cache[input_source]
+
+            # run test
+            ffmpeg_test = TestAsync(self.hass.data[DATA_BIN], loop=hass.loop)
+            success = yield from ffmpeg_test.run_test(input_source)
+            if not success:
+                _LOGGER.error("FFmpeg '%s' test fails!", input_source)
+                self._cache[input_source] = False
+            else:
+                self._cache[input_source] = True
+            return self._cache[input_source]
+        return True
