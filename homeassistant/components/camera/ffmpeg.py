@@ -12,7 +12,7 @@ from aiohttp import web
 
 from homeassistant.components.camera import Camera, PLATFORM_SCHEMA
 from homeassistant.components.ffmpeg import (
-    async_run_test, get_binary, CONF_INPUT, CONF_EXTRA_ARGUMENTS)
+    DATA_BIN, DATA_TEST, CONF_INPUT, CONF_EXTRA_ARGUMENTS)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.const import CONF_NAME
 from homeassistant.util.async import run_coroutine_threadsafe
@@ -33,7 +33,9 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     """Setup a FFmpeg Camera."""
-    if not async_run_test(hass, config.get(CONF_INPUT)):
+    ret = yield from hass.data[DATA_TEST].async_run_test(
+        config.get(CONF_INPUT))
+    if not ret:
         return
     hass.loop.create_task(async_add_devices([FFmpegCamera(hass, config)]))
 
@@ -57,7 +59,8 @@ class FFmpegCamera(Camera):
     def async_camera_image(self):
         """Return a still image response from the camera."""
         from haffmpeg import ImageSingleAsync, IMAGE_JPEG
-        ffmpeg = ImageSingleAsync(get_binary(), loop=self.hass.loop)
+        ffmpeg = ImageSingleAsync(self.hass.data[DATA_BIN],
+                                  loop=self.hass.loop)
 
         image = yield from ffmpeg.get_image(
             self._input, output_format=IMAGE_JPEG,
@@ -69,7 +72,8 @@ class FFmpegCamera(Camera):
         """Generate an HTTP MJPEG stream from the camera."""
         from haffmpeg import CameraMjpegAsync
 
-        stream = CameraMjpegAsync(get_binary(), loop=self.hass.loop)
+        stream = CameraMjpegAsync(self.hass.data[DATA_BIN],
+                                  loop=self.hass.loop)
         yield from stream.open_camera(
             self._input, extra_cmd=self._extra_arguments)
 

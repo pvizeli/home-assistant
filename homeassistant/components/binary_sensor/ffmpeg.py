@@ -13,7 +13,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.components.binary_sensor import (
     BinarySensorDevice, PLATFORM_SCHEMA, DOMAIN)
 from homeassistant.components.ffmpeg import (
-    get_binary, run_test, CONF_INPUT, CONF_OUTPUT, CONF_EXTRA_ARGUMENTS)
+    DATA_BIN, DATA_TEST, CONF_INPUT, CONF_OUTPUT, CONF_EXTRA_ARGUMENTS)
 from homeassistant.config import load_yaml_config_file
 from homeassistant.const import (EVENT_HOMEASSISTANT_STOP, CONF_NAME,
                                  ATTR_ENTITY_ID)
@@ -81,14 +81,14 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     from haffmpeg import SensorNoise, SensorMotion
 
     # check source
-    if not run_test(hass, config.get(CONF_INPUT)):
+    if not hass.data[DATA_TEST].run_test(config.get(CONF_INPUT)):
         return
 
     # generate sensor object
     if config.get(CONF_TOOL) == FFMPEG_SENSOR_NOISE:
-        entity = FFmpegNoise(SensorNoise, config)
+        entity = FFmpegNoise(hass, SensorNoise, config)
     else:
-        entity = FFmpegMotion(SensorMotion, config)
+        entity = FFmpegMotion(hass, SensorMotion, config)
 
     hass.bus.listen_once(EVENT_HOMEASSISTANT_STOP, entity.shutdown_ffmpeg)
 
@@ -126,12 +126,12 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 class FFmpegBinarySensor(BinarySensorDevice):
     """A binary sensor which use ffmpeg for noise detection."""
 
-    def __init__(self, ffobj, config):
+    def __init__(self, hass, ffobj, config):
         """Constructor for binary sensor noise detection."""
         self._state = False
         self._config = config
         self._name = config.get(CONF_NAME)
-        self._ffmpeg = ffobj(get_binary(), self._callback)
+        self._ffmpeg = ffobj(hass.data[DATA_BIN], self._callback)
 
         self._start_ffmpeg(config)
 
