@@ -463,8 +463,6 @@ def async_check_ha_config_file(hass):
 
     This method is a coroutine.
     """
-    import homeassistant.components.persistent_notification as pn
-
     proc = yield from asyncio.create_subprocess_exec(
         sys.argv[0],
         '--script',
@@ -474,6 +472,7 @@ def async_check_ha_config_file(hass):
     (stdout_data, dummy) = yield from proc.communicate()
     result = yield from proc.wait()
     if result:
+        pn = get_component('persistent_notification')
         content = re.sub(r'\033\[[^m]*m', '', str(stdout_data, 'utf-8'))
         # Put error cleaned from color codes in the error log so it
         # will be visible at the UI.
