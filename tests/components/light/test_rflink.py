@@ -342,3 +342,31 @@ def test_signal_repetitions_cancelling(hass, monkeypatch):
     assert protocol.send_command_ack.call_args_list[1][0][1] == 'on'
     assert protocol.send_command_ack.call_args_list[2][0][1] == 'on'
     assert protocol.send_command_ack.call_args_list[3][0][1] == 'on'
+
+
+@asyncio.coroutine
+def test_disable_automatic_add(hass, monkeypatch):
+    """If disabled new devices should not be automatically added."""
+    config = {
+        'rflink': {
+            'port': '/dev/ttyABC0',
+        },
+        DOMAIN: {
+            'platform': 'rflink',
+            'automatic_add': False,
+        },
+    }
+
+    # setup mocking rflink module
+    event_callback, _, _, _ = yield from mock_rflink(
+        hass, config, DOMAIN, monkeypatch)
+
+    # test event for new unconfigured sensor
+    event_callback({
+        'id': 'protocol_0_0',
+        'command': 'off',
+    })
+    yield from hass.async_block_till_done()
+
+    # make sure new device is not added
+    assert not hass.states.get('light.protocol_0_0')
