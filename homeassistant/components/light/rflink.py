@@ -10,9 +10,9 @@ import logging
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS, SUPPORT_BRIGHTNESS, Light)
 from homeassistant.components.rflink import (
-    CONF_ALIASSES, CONF_DEVICE_DEFAULTS, CONF_DEVICES, CONF_FIRE_EVENT,
-    CONF_IGNORE_DEVICES, CONF_SIGNAL_REPETITIONS, DATA_DEVICE_REGISTER,
-    DATA_ENTITY_LOOKUP, DEVICE_DEFAULTS_SCHEMA, DOMAIN,
+    CONF_ALIASSES, CONF_AUTOMATIC_ADD, CONF_DEVICE_DEFAULTS, CONF_DEVICES,
+    CONF_FIRE_EVENT, CONF_IGNORE_DEVICES, CONF_SIGNAL_REPETITIONS,
+    DATA_DEVICE_REGISTER, DATA_ENTITY_LOOKUP, DEVICE_DEFAULTS_SCHEMA, DOMAIN,
     EVENT_KEY_COMMAND, EVENT_KEY_ID, SwitchableRflinkDevice, cv, vol)
 from homeassistant.const import CONF_NAME, CONF_PLATFORM, CONF_TYPE
 
@@ -29,6 +29,7 @@ PLATFORM_SCHEMA = vol.Schema({
     vol.Optional(CONF_IGNORE_DEVICES): vol.All(cv.ensure_list, [cv.string]),
     vol.Optional(CONF_DEVICE_DEFAULTS, default=DEVICE_DEFAULTS_SCHEMA({})):
     DEVICE_DEFAULTS_SCHEMA,
+    vol.Optional(CONF_AUTOMATIC_ADD, default=True): cv.boolean,
     vol.Optional(CONF_DEVICES, default={}): vol.Schema({
         cv.string: {
             vol.Optional(CONF_NAME): cv.string,
@@ -136,7 +137,8 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         # Make sure the event is processed by the new entity
         device.handle_event(event)
 
-    hass.data[DATA_DEVICE_REGISTER][EVENT_KEY_COMMAND] = add_new_device
+    if config[CONF_AUTOMATIC_ADD]:
+        hass.data[DATA_DEVICE_REGISTER][EVENT_KEY_COMMAND] = add_new_device
 
 
 class RflinkLight(SwitchableRflinkDevice, Light):
