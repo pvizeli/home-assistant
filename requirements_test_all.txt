@@ -21,7 +21,7 @@ freezegun>=0.3.8
 
 
 # homeassistant.components.notify.html5
-PyJWT==1.5.2
+PyJWT==2.4.0
 
 # homeassistant.components.media_player.sonos
 SoCo==0.12
